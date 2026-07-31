@@ -1,25 +1,56 @@
 import { useFrame, type RootState } from '@react-three/fiber'
 import { useReducedMotion } from './useReducedMotion'
 
-type FrameCallback = (state: RootState, delta: number) => void
+/**
+ * @param state       R3F root state, same as useFrame.
+ * @param motionDelta Seconds since the last frame, or **0** when the user has
+ *                    asked for reduced motion.
+ * @param realDelta   The true delta, regardless of the preference. Only needed
+ *                    for things that must keep advancing either way.
+ */
+type SceneFrameCallback = (
+  state: RootState,
+  motionDelta: number,
+  realDelta: number,
+) => void
 
 /**
- * useFrame that stops when the user has asked for reduced motion.
+ * useFrame with reduced motion built into the time step rather than the loop.
  *
- * Use this instead of useFrame for anything that animates on its own —
- * rotation, drift, noise, idle bobbing. The callback still runs once after the
- * setting flips so the scene can settle into a sensible resting pose, then
- * goes quiet.
+ * The obvious design — skip the callback entirely when reduced motion is set —
+ * does not survive contact with a real scene, because one callback usually
+ * carries two different kinds of value:
  *
- * Scroll-driven work is different: that is user-initiated, so plain useFrame
- * reading a scroll value is fine. It only moves when they move.
+ *   uniforms.uDepth.value = scroll.current   // user-driven: must keep updating
+ *   uniforms.uTime.value += motionDelta      // self-running: must stop
+ *
+ * Freezing the whole callback freezes the first kind too, which strands a
+ * scroll-driven scene at whatever it looked like on load — a worse experience
+ * for the person who asked for calm, not a gentler one.
+ *
+ * So the callback always runs, and `motionDelta` goes to zero instead. Anything
+ * integrating it stops dead; anything reading scroll or pointer state carries
+ * on. Page code needs no branching at all:
+ *
+ *   useSceneFrame((_state, dt) => {
+ *     material.uniforms.uDepth.value = descent.current
+ *     material.uniforms.uTime.value += dt
+ *   })
+ *
+ * Derived motion follows for free — a `sin(uTime)` bob goes still on its own
+ * once uTime stops advancing.
+ *
+ * Returns the current reduced-motion state for the rare case that needs an
+ * explicit branch (swapping a whole behaviour rather than slowing one down).
  */
-export function useSceneFrame(callback: FrameCallback, renderPriority = 0) {
+export function useSceneFrame(
+  callback: SceneFrameCallback,
+  renderPriority = 0,
+): boolean {
   const reduced = useReducedMotion()
 
   useFrame((state, delta) => {
-    if (reduced) return
-    callback(state, delta)
+    callback(state, reduced ? 0 : delta, delta)
   }, renderPriority)
 
   return reduced

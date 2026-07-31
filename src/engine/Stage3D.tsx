@@ -4,7 +4,6 @@ import { Canvas, type CanvasProps } from '@react-three/fiber'
 import { GL_LAYER_ID } from './GLLayer'
 import { GPUStatsProbe, GPUStatsReadout, type GPUSnapshot } from './GPUStats'
 import { dprRange, supportsWebGL } from './perf'
-import { useReducedMotion } from './useReducedMotion'
 
 type Stage3DProps = {
   /**
@@ -49,7 +48,6 @@ export function Stage3D({
   frameloop = 'always',
   stats = import.meta.env.DEV,
 }: Stage3DProps) {
-  const reduced = useReducedMotion()
   const [host, setHost] = useState<HTMLElement | null>(null)
   const [supported] = useState(supportsWebGL)
   const [contextLost, setContextLost] = useState(false)
@@ -62,10 +60,17 @@ export function Stage3D({
 
   const showCanvas = supported && !contextLost
 
-  // Reduced motion still gets the scene — it just stops animating. Killing the
-  // visual entirely would be a bigger change than the user asked for. Scene
-  // code opts out of self-animation via useSceneFrame.
-  const effectiveFrameloop = reduced && frameloop === 'always' ? 'demand' : frameloop
+  // The render loop is NOT downgraded under reduced motion, deliberately.
+  //
+  // An earlier version flipped 'always' to 'demand' here, which looks thrifty
+  // and is a trap: a scroll-driven scene needs its loop to keep running so
+  // uniforms can track scroll, and 'demand' only renders on explicit
+  // invalidate. It survived by luck — something else happened to invalidate
+  // each frame — and would have frozen a scene that truly owned its loop.
+  //
+  // Reduced motion is handled where it belongs: `useSceneFrame` zeroes the
+  // time step, so self-running animation stops while user-driven values carry
+  // on. The loop is the wrong layer to suppress motion at.
 
   const scene = (
     <div className={className ?? 'absolute inset-0'}>
@@ -85,7 +90,7 @@ export function Stage3D({
         <Canvas
           className="absolute inset-0"
           dpr={dprRange()}
-          frameloop={effectiveFrameloop}
+          frameloop={frameloop}
           camera={camera}
           gl={{
             antialias: true,

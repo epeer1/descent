@@ -2,11 +2,10 @@ import { useRef, type CSSProperties } from 'react'
 import {
   gsap,
   useGSAP,
-  ScrollTrigger,
   MOTION_OK,
   MOTION_REDUCED,
   Stage3D,
-  useReducedMotion,
+  useScrollProgress,
 } from '@/engine'
 import { DescentScene } from './descent/Scene'
 import { Hud, type HudHandle } from './descent/Hud'
@@ -38,24 +37,16 @@ const ENTRIES = [
 export function Descent() {
   const root = useRef<HTMLDivElement>(null)
   const hud = useRef<HudHandle | null>(null)
-  const reduced = useReducedMotion()
+
+  // The scroll -> WebGL bridge. Writes `descent` for the shaders and drives the
+  // HUD's textContent directly, so nothing here costs a React render. Reduced
+  // motion drops the scrub easing but keeps tracking scroll.
+  useScrollProgress(root, descent, {
+    onUpdate: (progress) => hud.current?.update(progress),
+  })
 
   useGSAP(
     () => {
-      // Depth is user-driven — someone who asked for reduced motion is still
-      // scrolling, and freezing the descent would break the page rather than
-      // calm it. What changes is the easing: no catch-up smoothing.
-      const depthTrigger = ScrollTrigger.create({
-        trigger: root.current,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: reduced ? true : 0.55,
-        onUpdate: (self) => {
-          descent.progress = self.progress
-          hud.current?.update(self.progress)
-        },
-      })
-
       const mm = gsap.matchMedia()
 
       mm.add(MOTION_OK, () => {
@@ -89,12 +80,9 @@ export function Descent() {
         gsap.set('[data-entry], [data-hero-line]', { y: 0, opacity: 1 })
       })
 
-      return () => {
-        depthTrigger.kill()
-        mm.revert()
-      }
+      return () => mm.revert()
     },
-    { scope: root, dependencies: [reduced] },
+    { scope: root },
   )
 
   return (

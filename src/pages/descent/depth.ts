@@ -1,3 +1,5 @@
+import { createScrollValue } from '@/engine'
+
 /**
  * Scroll position, shared between the DOM and the WebGL scene.
  *
@@ -6,10 +8,8 @@
  * ~60 times a second to update numbers that only ever reach a shader uniform
  * or a text node. GSAP writes it, useFrame reads it, React never sees it.
  */
-export const descent = {
-  /** 0 at the surface, 1 at the seafloor. */
-  progress: 0,
-}
+/** 0 at the surface, 1 at the seafloor. Written by useScrollProgress. */
+export const descent = createScrollValue()
 
 /**
  * The depth scale is deliberately NOT linear.

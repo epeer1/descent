@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { createDisposalBin, detectTier, useReducedMotion } from '@/engine'
+import { createDisposalBin, detectTier, useSceneFrame } from '@/engine'
 import { createGoldfishGeometry } from './fishGeometry'
 import { createJellyfishGeometry } from './jellyGeometry'
 import { descent } from './depth'
@@ -38,7 +38,6 @@ const MOTE_COUNT = TIER === 'low' ? 90 : TIER === 'mid' ? 150 : 240
 
 /** Full-bleed water. Written straight to clip space, so it ignores the camera. */
 function Ocean() {
-  const reduced = useReducedMotion()
   const { size } = useThree()
 
   const { geometry, material, disposeAll } = useMemo(() => {
@@ -66,11 +65,11 @@ function Ocean() {
     material.uniforms.uAspect.value = size.width / size.height
   }, [material, size])
 
-  useFrame((_state, delta) => {
-    // Depth is scroll-driven, so it keeps updating under reduced motion — the
-    // user is still in control of it. Only the self-running water clock stops.
-    material.uniforms.uDepth.value = descent.progress
-    if (!reduced) material.uniforms.uTime.value += delta
+  // uDepth is user-driven and keeps tracking; uTime integrates motionDelta, so
+  // the water clock stops on its own under reduced motion. No branching.
+  useSceneFrame((_state, motionDelta) => {
+    material.uniforms.uDepth.value = descent.current
+    material.uniforms.uTime.value += motionDelta
   })
 
   return (
@@ -80,7 +79,6 @@ function Ocean() {
 
 /** The goldfish. The only warm thing on the page. */
 function Goldfish() {
-  const reduced = useReducedMotion()
   const mesh = useRef<THREE.Mesh>(null)
   const { viewport } = useThree()
 
@@ -111,25 +109,21 @@ function Goldfish() {
 
   useEffect(() => disposeAll, [disposeAll])
 
-  useFrame((_state, delta) => {
-    const d = descent.progress
+  useSceneFrame((_state, motionDelta) => {
+    const d = descent.current
     material.uniforms.uDepth.value = d
-    if (!reduced) material.uniforms.uTime.value += delta
+    material.uniforms.uTime.value += motionDelta
 
     if (!mesh.current) return
-    // Tips nose-down as it goes deeper. It stops swimming and starts sinking.
-    const tilt = -d * 0.42
-    const drift = reduced ? 0 : Math.sin(material.uniforms.uTime.value * 0.6) * 0.06
-    mesh.current.rotation.z = tilt + drift
-    mesh.current.rotation.y = reduced
-      ? -0.25
-      : -0.25 + Math.sin(material.uniforms.uTime.value * 0.35) * 0.14
-    // He settles as he reaches the bottom. This is narrative and practical at
-    // once: it reads as coming to rest, and it clears the centre of the frame
-    // for the closing line, which otherwise lands straight on top of him.
-    const sink = -Math.pow(d, 2.5) * 1.5
-    const bob = reduced ? 0 : Math.sin(material.uniforms.uTime.value * 0.75) * 0.09
-    mesh.current.position.y = sink + bob
+    const t = material.uniforms.uTime.value
+
+    // Every term below reads either `d` (scroll, always live) or `t` (frozen
+    // under reduced motion). The swim, drift and bob therefore go still by
+    // themselves while the tilt and sink keep answering the scroll — which is
+    // what the old explicit `reduced ? ... : ...` branches were doing by hand.
+    mesh.current.rotation.z = -d * 0.42 + Math.sin(t * 0.6) * 0.06
+    mesh.current.rotation.y = -0.25 + Math.sin(t * 0.35) * 0.14
+    mesh.current.position.y = -Math.pow(d, 2.5) * 1.5 + Math.sin(t * 0.75) * 0.09
   })
 
   return <mesh ref={mesh} geometry={geometry} material={material} scale={scale} />
@@ -137,7 +131,6 @@ function Goldfish() {
 
 /** Everything that is not the goldfish. Instanced — one draw call for all of it. */
 function School() {
-  const reduced = useReducedMotion()
 
   const { mesh, material, disposeAll } = useMemo(() => {
     const bin = createDisposalBin()
@@ -199,9 +192,9 @@ function School() {
 
   useEffect(() => disposeAll, [disposeAll])
 
-  useFrame((_state, delta) => {
-    material.uniforms.uDepth.value = descent.progress
-    if (!reduced) material.uniforms.uTime.value += delta
+  useSceneFrame((_state, motionDelta) => {
+    material.uniforms.uDepth.value = descent.current
+    material.uniforms.uTime.value += motionDelta
   })
 
   return <primitive object={mesh} />
@@ -212,7 +205,6 @@ function School() {
  * call for the whole population, same as the school.
  */
 function Jellies() {
-  const reduced = useReducedMotion()
 
   const { mesh, material, disposeAll } = useMemo(() => {
     const bin = createDisposalBin()
@@ -267,9 +259,9 @@ function Jellies() {
 
   useEffect(() => disposeAll, [disposeAll])
 
-  useFrame((_state, delta) => {
-    material.uniforms.uDepth.value = descent.progress
-    if (!reduced) material.uniforms.uTime.value += delta
+  useSceneFrame((_state, motionDelta) => {
+    material.uniforms.uDepth.value = descent.current
+    material.uniforms.uTime.value += motionDelta
   })
 
   return <primitive object={mesh} />
@@ -282,7 +274,6 @@ function Jellies() {
  * stopped waiting for light and started making it.
  */
 function Motes() {
-  const reduced = useReducedMotion()
   const { viewport } = useThree()
 
   const { points, material, disposeAll } = useMemo(() => {
@@ -335,9 +326,9 @@ function Motes() {
     material.uniforms.uPixelRatio.value = viewport.dpr
   }, [material, viewport.dpr])
 
-  useFrame((_state, delta) => {
-    material.uniforms.uDepth.value = descent.progress
-    if (!reduced) material.uniforms.uTime.value += delta
+  useSceneFrame((_state, motionDelta) => {
+    material.uniforms.uDepth.value = descent.current
+    material.uniforms.uTime.value += motionDelta
   })
 
   return <primitive object={points} />
@@ -345,7 +336,6 @@ function Motes() {
 
 /** Marine snow. Rises past the camera because we are the ones going down. */
 function MarineSnow() {
-  const reduced = useReducedMotion()
   const { viewport } = useThree()
 
   const { points, material, disposeAll } = useMemo(() => {
@@ -398,9 +388,9 @@ function MarineSnow() {
     material.uniforms.uPixelRatio.value = viewport.dpr
   }, [material, viewport.dpr])
 
-  useFrame((_state, delta) => {
-    material.uniforms.uDepth.value = descent.progress
-    if (!reduced) material.uniforms.uTime.value += delta
+  useSceneFrame((_state, motionDelta) => {
+    material.uniforms.uDepth.value = descent.current
+    material.uniforms.uTime.value += motionDelta
   })
 
   return <primitive object={points} />
