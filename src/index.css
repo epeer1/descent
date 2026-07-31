@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 auto-detects source files, but that detection SKIPS anything
+   git ignores. A page directory excluded from version control — generated
+   pages, client work kept out of a public repo, anything in
+   .git/info/exclude — therefore compiles with none of its utilities and
+   fails silently: the markup is right, the CSS simply never existed.
+   Declaring the sources explicitly opts out of that heuristic. */
+@source "./pages/**/*.{ts,tsx}";
+@source "./engine/**/*.{ts,tsx}";
+@source "./*.{ts,tsx}";
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   The engine ships SLOTS, not a palette. Every page sets its own accent and
+   type pairing at the page level (see CLAUDE.md — one accent, one deliberate
+   pairing, both specified before implementation starts).
+
+   Nothing here is a suggestion to be reused across pages. If two pages built
+   with this engine look related, something has gone wrong.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* PLACEHOLDER. Pages overwrite --color-accent in their own scope.
+     Left as flat black so an unset accent reads as obviously unfinished
+     rather than accidentally acceptable. */
+  --color-accent: oklch(0 0 0);
+
+  /* Neutral base. Off-black on warm off-white — never #000 on #fff, which
+     reads as an unstyled document at any size. */
+  --color-ink: oklch(0.18 0.008 60);
+  --color-paper: oklch(0.97 0.006 85);
+
+  /* Type slots. System stacks are the FALLBACK, not the design. A page that
+     ships with these still active has no type pairing and is not done.
+     Explicitly no Inter, no Roboto. */
+  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  --font-text: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+@layer base {
+  html {
+    /* ScrollSmoother drives scrolling itself; native smooth scroll fights it. */
+    scroll-behavior: auto;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-text);
+    /* Kerning and ligatures on by default — the cheapest craft win there is. */
+    font-kerning: normal;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  /* NOTHING is declared for #smooth-wrapper on purpose.
+     ScrollSmoother.create() applies its own `position: fixed; overflow: hidden`
+     to the wrapper when it initialises, and hard-coding those here breaks the
+     page in exactly the case that matters most: SmoothScroll skips creating the
+     smoother under prefers-reduced-motion, and a fixed, overflow-hidden wrapper
+     with no smoother inside it traps the content and makes the document
+     completely unscrollable. Leave the wrapper a plain div and let the plugin
+     style it only when it is actually running. */
+
+  /* Keyboard focus must survive every page's art direction. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  canvas {
+    display: block;
+    touch-action: pan-y;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced-motion backstop.
+
+   This is a NET, not the implementation. Every animation is expected to handle
+   the preference itself (gsap.matchMedia, useReducedMotion, useSceneFrame) so
+   that it degrades into a considered still state rather than a frozen
+   mid-transition one. This block only catches what slipped through — a CSS
+   transition someone added at 2am.
+--------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
