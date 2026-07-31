@@ -6,6 +6,10 @@ import glsl from 'vite-plugin-glsl'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages serves project sites from /<repo>/, so every emitted asset
+  // URL has to carry that prefix. Vite applies it to anything it processes —
+  // which is why the fonts and poster live in src/ rather than public/.
+  base: '/descent/',
   plugins: [
     react(),
     tailwindcss(),

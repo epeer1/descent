@@ -1,26 +1,22 @@
 {
-  "name": "webengine",
+  "name": "descent",
   "private": true,
   "version": "0.1.0",
-  "description": "A template for building high-craft, animation-heavy web pages with Vite, React, GSAP and React Three Fiber — capability and constraints, no house style.",
+  "description": "The Descent Log — a common goldfish falling through the open ocean. Scroll is depth.",
   "license": "MIT",
   "author": "epeer1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/epeer1/webEngine.git"
+    "url": "https://github.com/epeer1/descent.git"
   },
-  "homepage": "https://github.com/epeer1/webEngine#readme",
+  "homepage": "https://epeer1.github.io/descent/",
   "keywords": [
     "gsap",
     "scrolltrigger",
-    "scrollsmoother",
     "react-three-fiber",
-    "three",
     "webgl",
-    "vite",
-    "tailwind",
-    "template",
-    "claude-code"
+    "shaders",
+    "scrollytelling"
   ],
   "type": "module",
   "engines": {

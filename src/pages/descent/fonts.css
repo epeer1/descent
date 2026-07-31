@@ -1,0 +1,35 @@
+/* Page-scoped font resources. @font-face cannot be scoped to a selector, so
+   the declarations are global — but the ASSIGNMENT to --font-display /
+   --font-text happens inside the page component, which is what keeps other
+   pages from inheriting this pairing.
+
+   Paths are RELATIVE on purpose. This deploys to GitHub Pages under a subpath
+   (/descent/), and an absolute `/fonts/...` URL would resolve to the domain
+   root and 404. Relative URLs let Vite hash the files and rewrite them against
+   `base` automatically.
+
+   Both families are SIL Open Font License 1.1. See FONT-LICENSES.txt */
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('./assets/instrument-serif-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('./assets/instrument-serif-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/jetbrains-mono-var.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
